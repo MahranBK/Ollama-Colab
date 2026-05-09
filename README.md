@@ -26,18 +26,15 @@ Once running, the endpoint speaks the standard Ollama HTTP API — compatible wi
 
 The v2.4 notebook includes a **live model browser** that lets you select from the entire Ollama library. Popular models include:
 
-| Model | Tag | Size | Speed on T4 | Notes |
-| --- | --- | --- | --- | --- |
-| Qwen 3 32B | `qwen3:32b` | ~20 GB | Moderate | Best quality |
-| Qwen 3 14B | `qwen3:14b` | ~9 GB | Fast | Good balance — recommended for free tier |
-| Qwen 3 8B | `qwen3:8b` | ~5 GB | Fastest | Quick experiments |
-| Qwen 2.5 Coder 32B | `qwen2.5-coder:32b` | ~20 GB | Moderate | Code-specialised |
-| Qwen 2.5 Coder 14B | `qwen2.5-coder:14b` | ~9 GB | Fast | Code-specialised |
-| Llama 3.1 8B | `llama3.1:8b` | ~5 GB | Fast | General purpose |
-| Llama 3.1 70B | `llama3.1:70b` | ~40 GB | Slow | Large context |
-| Mistral 7B | `mistral:7b` | ~4 GB | Fast | Good all-around performance |
-| CodeLlama 13B | `codellama:13b` | ~7 GB | Fast | Code-optimized |
-| Deepseek Coder 6.7B | `deepseek-coder:6.7b` | ~3.8 GB | Fastest | Code-specialized |
+| Model | Tag | Size | Speed on T4 | Speed on A100 | Notes |
+| --- | --- | --- | --- | --- | --- |
+| DeepSeek R1 14B | `deepseek-r1:14b` | ~9 GB | Fast | Very Fast | Best reasoning for T4 |
+| Qwen 2.5 14B | `qwen2.5:14b` | ~9 GB | Fast | Very Fast | Good balance — recommended |
+| Qwen 2.5 Coder 14B | `qwen2.5-coder:14b` | ~9 GB | Fast | Very Fast | Code-specialised |
+| Llama 3.1 8B | `llama3.1:8b` | ~5 GB | Fast | Very Fast | General purpose |
+| DeepSeek R1 32B | `deepseek-r1:32b` | ~20 GB | Slow (offload) | Fast | Best reasoning, fits in A100 |
+| DeepSeek R1 70B | `deepseek-r1:70b` | ~40 GB | N/A | Fast | Best reasoning, requires A100 |
+| Mistral 7B | `mistral:7b` | ~4 GB | Fast | Very Fast | Good all-around performance |
 
 ---
 
@@ -45,8 +42,11 @@ The v2.4 notebook includes a **live model browser** that lets you select from th
 
 ### 1. Google Colab runtime
 
-Change the runtime to **T4 GPU** before running:  
+**Free tier**: Change the runtime to **T4 GPU** before running:  
 `Runtime → Change runtime type → T4 GPU → Save`
+
+**Colab Pro+ (2026)**: Offers access to **A100 GPU** (40GB VRAM), enabling much larger models:  
+`Runtime → Change runtime type → A100 GPU → Save`
 
 ### 2. Tunnel credentials (one of the following)
 
@@ -60,11 +60,19 @@ Provides a stable, fixed hostname with no session limits.
 5. Add a secret: `cloudflare_token` = `<your-token>`
 
 **Option B — ngrok**  
-Simpler to set up, but the URL rotates every ~2 hours on the free tier.
+Simpler to set up, but has significant 2026 free tier limitations:
+
+⚠️ **2026 Free Tier Restrictions:**
+
+- **1 GB/month bandwidth cap** - Very limited for LLM API usage
+- **Interstitial warning pages** - Browser traffic shows ngrok warnings
+- **URL rotation** - Changes every ~2 hours
 
 1. Sign up at [ngrok.com](https://ngrok.com)
 2. Copy your authtoken from the [dashboard](https://dashboard.ngrok.com/get-started/your-authtoken)
 3. In Colab Secrets, add: `ngrok_authtoken` = `<your-token>`
+
+💡 **Recommendation**: Use Cloudflare Tunnel instead - no bandwidth limits or warning pages.
 
 The notebook uses a dropdown to select tunnel method. Cloudflare quick tunnel is the default and requires no credentials.
 
@@ -76,135 +84,37 @@ The notebook uses a dropdown to select tunnel method. Cloudflare quick tunnel is
 
 Open `Ollama_Colab_v2_4.ipynb` in Google Colab and run the cells in order (Steps 1–9). The public URL is printed at the end of Step 7.
 
-### Making requests
-
-Replace `https://your-url` with the URL from Step 7.
-
-### curl
-
-```bash
-# Chat
-curl -X POST https://your-url/api/chat \
-  -H 'Content-Type: application/json' \
-  -d '{"model": "qwen3:14b", "messages": [{"role": "user", "content": "Explain recursion"}]}'
-
-# Single-turn generate
-curl -X POST https://your-url/api/generate \
-  -H 'Content-Type: application/json' \
-  -d '{"model": "qwen3:14b", "prompt": "Hello, world!"}'
-
-# Extended thinking mode (Qwen 3)
-curl -X POST https://your-url/api/chat \
-  -H 'Content-Type: application/json' \
-  -d '{"model": "qwen3:14b", "messages": [{"role": "user", "content": "/think Solve this step by step: ..."}]}'
-```
-
-### Python
-
-```python
-import requests
-
-response = requests.post(
-    "https://your-url/api/chat",
-    json={
-        "model": "qwen3:14b",
-        "messages": [{"role": "user", "content": "Write a Flask API"}],
-    }
-)
-print(response.json()["message"]["content"])
-```
-
-### VS Code (Continue / CodeGPT extension)
-
-1. Install the extension
-2. Set provider to **Ollama**
-3. Set base URL to your tunnel URL
-4. Select your model (e.g. `qwen3:14b`)
-
----
-
-## Project structure
-
-```
-.
-├── Ollama_Colab_v2_4.ipynb   # Main notebook (current version)
-├── Old_Version/              # Previous version and documentation
-└── README.md
-```
-
-### Notebook steps
-
-| Step | Cell | What it does |
-| --- | --- | --- |
-| 1 | Install | Verifies GPU, installs Ollama, pyngrok, cloudflared |
-| 2 | Configure | Live model browser with search and filtering |
-| 3 | Imports | Loads libraries, configures tunnel method from dropdown |
-| 4 | Helpers | `stream_output` and `wait_for_ollama` utility functions |
-| 5 | Ollama server | Starts `ollama serve`, waits for readiness, checks for early exit |
-| 6 | Pull model | Downloads selected model with live progress |
-| 7 | Tunnel | Opens ngrok or Cloudflare Tunnel, prints public URL |
-| 8 | Test | Sends a sample prompt, prints the response |
-| 9 | Keep-alive | Blocks to keep the server running; shuts down cleanly on interrupt |
-
 ---
 
 ## Limitations
 
-- **Colab free tier**: Sessions last a few hours; daily GPU quota applies. The `qwen3:14b` model is the most practical choice here.
-- **Colab Pro**: Sessions up to 24 hours with L4 GPU access.
-- **ngrok free tier**: URL rotates every ~2 hours. Update your client config after each rotation.
-- **Security**: The tunnel exposes your Ollama instance publicly with no authentication. Avoid running sensitive prompts on shared or public networks. Consider adding a reverse proxy with auth if you need persistent access.
+- **Colab free tier**: Sessions last a few hours; daily GPU quota applies. Models up to 14B are ideal.
+- **T4 VRAM**: T4 has 16GB. Models > 14B (like 32B) will offload to system RAM and run significantly slower.
+- **A100 VRAM**: A100 has 40GB. Can comfortably run 70B+ models with full GPU acceleration. Available in Colab Pro+ (2026).
+- **ngrok free tier (2026)**: 1 GB/month bandwidth cap is very restrictive for LLM API usage; warning pages interrupt browser traffic.
+- **Security**: The tunnel exposes your Ollama instance publicly with no authentication. In 2026, this creates significant security risks:
+  - **Unauthorized inference**: Anyone can use your GPU quota for model inference
+  - **Cost abuse**: Malicious actors could run expensive operations at your expense
+  - **Prompt injection**: Vulnerable to adversarial prompt attacks
+  - **Tool exploitation**: If using models with tool access, could trigger unauthorized actions
+  - **Data exfiltration**: Models with internet access could be manipulated to extract data
 
----
+  **Recommendations:**
+  - Use only on trusted networks or for short testing periods
+  - Consider adding authentication (API key, OAuth, or reverse proxy)
+  - Monitor usage and costs regularly
+  - Disable tool access for public deployments
+  - Never use with models containing sensitive information
 
-## Changelog
+## Ollama 2026 Features
 
-### v2.4 (current)
-- Added **live Ollama model browser** (Step 2) — scrapes `ollama.com/library` at runtime
-- Filter models by capability (tools, vision, thinking, embedding, code, cloud)
-- Search by name or description
-- Selecting a model fetches its available tags live from `ollama.com/library/<model>/tags`
-- Tag picker (radio buttons) lets you choose the exact variant (e.g. `14b`, `q4_K_M`, `latest`)
-- Clicking **✅ Use this model** sets `MODEL_NAME` — Step 3 validates it is set before proceeding
-- Tag results are cached to avoid repeated network requests when switching between models
-- The hardcoded model dropdown is removed — any model in the Ollama library is now selectable
+The notebook supports the latest Ollama capabilities (v0.14.0+):
 
-### v2.3
+- **Anthropic API Compatibility**: Enables Claude Code integration and Anthropic-style API clients
+- **Structured Outputs (JSON Schema)**: Generate valid JSON responses with schema validation for API consumers
+- **Web Search Plugin**: Enable web search capabilities via Ollama integrations (requires additional setup)
 
-- Added **tunnel selection dropdown** in Step 3 (Colab form UI)
-- Default is **Cloudflare quick tunnel** — no credentials needed, just run
-- Selecting a named tunnel or ngrok loads the token from Colab Secrets and shows a clear error if the secret is missing, rather than silently falling back
-- Removed auto-detection logic in favour of explicit user choice
-
-### v2.2
-
-- Added **Cloudflare quick tunnel** as a zero-credential fallback (no secrets needed)
-- Tunnel priority: `cloudflare_token` → `ngrok_authtoken` → quick tunnel (auto-detected)
-- Added `OLLAMA_KEEP_ALIVE=-1` — model stays loaded in VRAM, eliminating cold-start delays between requests
-- Added `OLLAMA_CONTEXT_LENGTH=16384` — larger context window than the Ollama default
-- Added `OLLAMA_HOST=0.0.0.0` — ensures the tunnel can reach the server
-- Switched all HTTP calls from `urllib.request` to `requests` library
-- Added RAM check alongside GPU check (from `psutil`)
-- Fixed quick-tunnel stdout blocking bug — URL is parsed then stdout handed off to a background thread so the cell completes cleanly
-- Added `qwen2.5-coder:7b` to model dropdown
-
-### v2.1
-
-- Fixed Cloudflare Tunnel token handling — now uses `cloudflared tunnel run --token` (correct invocation)
-- Fixed `shell=True` + list args conflict in tunnel subprocess
-- Removed dead 60-second wait loop in Cloudflare setup
-- Added early-exit detection if `ollama serve` crashes on startup
-- Added `_bg_processes` registry — Step 9 now actually terminates all background processes on shutdown
-- Replaced `stdout` pipe race condition with single-reader background threads
-- `MODEL_SIZES` dict replaces fragile string-matching size estimates
-- `import re` moved to top-level imports; `json`/`json_mod` alias removed
-- `for line in process.stdout` loop replaces manual `readline()` + `poll()` pattern
-
-### v2.0
-
-- Dual-tunnel support (ngrok + Cloudflare auto-detection)
-- Qwen 3 model support
-- Colab Secrets integration
+These features can be enabled through the Ollama API endpoints exposed by the notebook.
 
 ---
 
@@ -217,12 +127,3 @@ This project was built to explore:
 - Tunneling techniques for exposing local services publicly
 - Python subprocess management and background threading
 - Google Colab as a free compute platform
-
----
-
-## Resources
-
-- [Ollama documentation](https://github.com/ollama/ollama/blob/main/docs/api.md)
-- [Qwen 3 model page](https://ollama.com/library/qwen3)
-- [Cloudflare Tunnel docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)
-- [ngrok documentation](https://ngrok.com/docs)
