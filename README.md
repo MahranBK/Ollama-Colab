@@ -1,134 +1,191 @@
-# Ollama on Google Colab - qwen2.5-coder-32b
+# Ollama Colab v2.5
 
-![Header](/assets/header.jpg)
+Run Ollama (a tool for running large language models locally) on Google Colab with a public HTTPS endpoint via Cloudflare Tunnel or ngrok.
 
-This notebook allows you to run the Qwen 2.5 Coder (32B) language model on Google Colab using Ollama. The setup provides a public endpoint through ngrok, allowing you to interact with the model from anywhere.
+> Built as a self-teaching project exploring LLM inference, tunneling, and remote API access.
 
-## Prerequisites
+---
 
-1. **Google Account**
-   - You need a Google account to use Google Colab
-   - Visit [Google Colab](https://colab.research.google.com/)
+## What it does
 
-2. **ngrok Account**
-   - Free account required for public endpoint access
-   - Sign up at [ngrok.com](https://ngrok.com)
-   - Get your authtoken from [dashboard.ngrok.com/get-started/your-authtoken](https://dashboard.ngrok.com/get-started/your-authtoken)
+- Installs Ollama on a Colab GPU instance
+- Lets you browse and select any model from the Ollama library
+- Exposes the Ollama API over a public HTTPS tunnel
+- Supports the standard Ollama API *and* the Anthropic-compatible `/v1/messages` endpoint (Ollama v0.14.0+)
 
-## Setup Instructions
+---
 
-### 1. Google Colab Setup
+## Quick Start
 
 1. Open the notebook in Google Colab
-2. Select `Runtime` -> `Change runtime type`
-3. Set "Hardware accelerator" to `GPU`
-4. Click `Save`
+2. Set GPU runtime: `Runtime → Change runtime type → T4 GPU → Save`
+3. Run `Runtime → Run all`, or execute each cell in order (Steps 1–10)
+4. Copy the public URL printed in Step 8
+5. Test with curl, Python, or a VS Code extension
 
-![Change Runtime - Google Colab](assets/Colab-Runtime-Change.png)
+---
 
-![Select Runtime - Google Colab](assets/Colab-Select-Runtime.png)
+## Notebook Structure
 
-### 2. ngrok Token Setup
+| Step | What it does |
+|------|-------------|
+| **1 — Install Dependencies** | Checks Python/GPU, installs missing packages, initialises shared globals |
+| **2 — Model Browser** | Interactive widget to browse/filter/select Ollama models and tags |
+| **3 — Configure Environment** | Memory management policy, tunnel type, loads Colab Secrets |
+| **4 — GPU Monitoring** | One-shot GPU snapshot; `monitor_gpu()` available for live stats |
+| **5 — Install Ollama** | Downloads and installs the Ollama binary via the official install script |
+| **6 — Pull Model** | Downloads the selected model with streamed progress output |
+| **7 — Start Ollama Server** | Launches `ollama serve` in the background, waits for the API to respond |
+| **8 — Start Tunnel** | Creates the public HTTPS endpoint (Cloudflare quick/named or ngrok) |
+| **9 — Test Endpoint** | Sends a configurable test prompt and prints the response |
+| **10 — Keep Server Alive** | Blocking loop; stops cell (■) to shut down cleanly |
 
-1. Click the 🔑 (key) icon in the left sidebar to open "Secrets"
-2. Click "Add new secret"
-3. Set Name as: `authtoken`
-4. Set Value as: your ngrok authtoken
-5. Click "Add"
+---
 
-### 3. Running the Notebook
+## Tunnel Options
 
-1. Run all cells in order
-2. Wait for the model to download (approximately 20GB)
-3. The notebook will display your public URL when ready
+| Option | Credentials needed | URL stability |
+|--------|--------------------|---------------|
+| Cloudflare quick tunnel | None | Changes every run |
+| Cloudflare named tunnel | `cloudflare_token` secret | Fixed hostname |
+| ngrok | `ngrok_authtoken` secret | Rotates every ~2 hours (free tier) |
 
-## System Requirements
+Add secrets via the 🔑 sidebar in Colab before running Step 3.
 
-- **GPU**: T4 or better (provided by Google Colab)
-- **Storage**: At least 25GB free space (for model download)
-- **RAM**: 12GB or more (provided by Google Colab)
+| Secret name | Where to get it |
+|---|---|
+| `cloudflare_token` | [Cloudflare dashboard](https://one.dash.cloudflare.com) → Networks → Tunnels → Create tunnel |
+| `ngrok_authtoken` | [ngrok dashboard](https://dashboard.ngrok.com/get-started/your-authtoken) |
 
-## Model Information
+---
 
-- **Model**: qwen2.5-coder-32b
-- **Size**: ~20GB
-- **Type**: Code-specialized language model
-- **Provider**: Qwen (Alibaba)
+## API Usage
 
-## Usage
+Replace `https://your-url` with the URL printed in Step 8.
 
-### Accessing the Model
-
-Once the notebook is running, you can access the model through:
-
-1. The provided ngrok URL in the notebook output
-2. Any Ollama-compatible client by pointing it to the ngrok URL
-3. Direct HTTP requests to the API endpoints
-
-### API Endpoints
-
-- GET `/api/tags` - List available models
-- POST `/api/generate` - Generate text
-- POST `/api/chat` - Chat with the model
-
-### Example cURL Request
+### curl
 
 ```bash
-curl -X POST https://your-ngrok-url/api/generate \
+# Chat
+curl -X POST https://your-url/api/chat \
   -H 'Content-Type: application/json' \
-  -d '{"model": "qwen2.5-coder:32b", "prompt": "Write a hello world program in Python"}'
+  -d '{"model": "qwen2.5:14b", "messages": [{"role": "user", "content": "Explain recursion"}]}'
+
+# Anthropic-compatible endpoint (Ollama v0.14.0+)
+curl -X POST https://your-url/v1/messages \
+  -H 'Content-Type: application/json' \
+  -d '{"model": "qwen2.5:14b", "max_tokens": 1024, "messages": [{"role": "user", "content": "Hello!"}]}'
 ```
 
-### Use with VSCode Extension
+### Python
 
-Ex. CodeGPT
+```python
+import requests
 
-![qwen2.5-coder:32b model used by CodeGPT](assets/CodeGPT-qwen2.5-coder-32b.png)  
-![Select Provider - CodeGPT](assets/CodeGPT-Select-Provider.png)  
-![Select Model - CodeGPT](assets/CodeGPT-Select-Model.png)  
+response = requests.post(
+    'https://your-url/api/chat',
+    json={
+        'model':    'qwen2.5:14b',
+        'messages': [{'role': 'user', 'content': 'Write a Flask API'}],
+        'stream':   False,
+    }
+)
+print(response.json()['message']['content'])
+```
 
-## Important Notes
+### Structured Output
 
-1. **Session Duration**
-   - Google Colab sessions have a limited runtime (usually 12 hours)
-   - Save any important outputs before the session ends
-   - The ngrok URL will change each time you restart the notebook
+```python
+schema = {
+    'type': 'object',
+    'properties': {
+        'name':   {'type': 'string'},
+        'age':    {'type': 'number'},
+        'skills': {'type': 'array', 'items': {'type': 'string'}},
+    },
+    'required': ['name', 'age'],
+}
 
-2. **Resource Usage**
-   - Monitor GPU memory usage in Colab
-   - The model requires significant GPU memory
-   - Close other GPU-intensive notebooks
+response = requests.post(
+    'https://your-url/api/generate',
+    json={'model': 'qwen2.5:14b', 'prompt': 'Generate a developer profile',
+          'format': schema, 'stream': False},
+)
+```
 
-3. **Security**
-   - The ngrok URL is publicly accessible
-   - Anyone with the URL can access your model
-   - Consider implementing additional authentication if needed
+---
 
-## Troubleshooting
+## Security
 
-1. **GPU Not Available**
-   - Ensure you've selected GPU runtime in Colab
-   - Check if you've hit Colab's GPU usage limits
-   - Try disconnecting and reconnecting to runtime
+> ⚠️ Your Ollama instance is **publicly accessible without authentication**.
 
-2. **Model Download Issues**
-   - Check your internet connection
-   - Ensure enough free storage space
-   - Try restarting the runtime
+- Use for short testing sessions only
+- Monitor GPU usage regularly in the Colab UI
+- Do not send sensitive or personal data through the public endpoint
+- For production use, add authentication (API key, OAuth, or a reverse proxy)
 
-3. **ngrok Connection Issues**
-   - Verify your authtoken is correct
-   - Check if you've hit ngrok's connection limits
-   - Ensure no firewall restrictions
+### Emergency shutdown
 
-## Contributing
+```python
+for name, proc in _bg_processes.items():
+    try:
+        proc.terminate()
+        print(f'Terminated: {name}')
+    except Exception:
+        pass
+```
 
-Feel free to open issues or submit pull requests for improvements.
+---
 
-## License
+## Colab Limits
 
-This project is provided as-is under the MIT License. The Qwen model has its own license terms that should be consulted separately.
+| Tier | Session length | GPU |
+|------|---------------|-----|
+| Free | A few hours | T4 (16 GB VRAM) |
+| Pro | Up to 24 hours | L4 (24 GB VRAM) |
+| Pro+ | Up to 24 hours | A100 (40 GB VRAM) |
 
-## Disclaimer
+---
 
-This is not an official Qwen or Ollama product. Use at your own risk and responsibility.
+## Recommended Models by GPU
+
+| Model | Size on disk | Fits on T4? |
+|-------|-------------|-------------|
+| `qwen2.5:7b` | ~4 GB | ✅ Comfortable |
+| `qwen2.5-coder:14b` | ~9 GB | ✅ Comfortable |
+| `deepseek-r1:14b` | ~9 GB | ✅ Comfortable |
+| `llama3.1:8b` | ~5 GB | ✅ Comfortable |
+| `qwen2.5:32b` | ~20 GB | ⚠️ May exceed T4 VRAM |
+| `deepseek-r1:32b` | ~20 GB | ⚠️ May exceed T4 VRAM |
+
+---
+
+## Changelog
+
+### v2.5
+- Fixed: duplicate model browser definitions removed
+- Fixed: missing `ollama serve` step added (Step 7)
+- Fixed: missing Ollama install step added (Step 5)
+- Fixed: security advisory was in a code cell (now markdown only)
+- Fixed: `_bg_processes` and globals now initialised in Step 1 to prevent `NameError` on out-of-order execution
+- Fixed: GPU monitor HTML table now built as a single string before `display()` call
+- Fixed: step numbers now match the Table of Contents (1–10, no gaps or duplicates)
+- Improved: memory config widget auto-applies on change and persists to `os.environ`
+- Improved: type hints and docstrings throughout
+- Improved: `check_model_memory_safety` uses a single dict lookup instead of nested if-chains
+
+### v2.4
+- Initial public release
+- Interactive model browser with Ollama library scraping and static fallback
+- Cloudflare quick tunnel, named tunnel, and ngrok support
+- GPU monitoring widget
+- Memory management policy widget
+
+---
+
+## Resources
+
+- [Ollama documentation](https://ollama.com/docs)
+- [Ollama security best practices](https://github.com/ollama/ollama/blob/main/docs/security.md)
+- [Colab security guide](https://research.google.com/colab/security)
+- [OWASP API Security Checklist](https://owasp.org/www-project-api-security/)
