@@ -12,7 +12,7 @@ The notebook (`Ollama_Colab_v2_4.ipynb`) automates the full setup on a Colab ins
 
 1. Verifies GPU availability
 2. Installs [Ollama](https://ollama.com) and tunnel dependencies
-3. Pulls your chosen model (Qwen 3 or Qwen 2.5 Coder)
+3. Pulls your chosen model from the entire Ollama library  
 4. Starts the Ollama server
 5. Opens a public tunnel (ngrok or Cloudflare)
 6. Tests the endpoint with a sample prompt
@@ -24,13 +24,20 @@ Once running, the endpoint speaks the standard Ollama HTTP API — compatible wi
 
 ## Supported models
 
+The v2.4 notebook includes a **live model browser** that lets you select from the entire Ollama library. Popular models include:
+
 | Model | Tag | Size | Speed on T4 | Notes |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | Qwen 3 32B | `qwen3:32b` | ~20 GB | Moderate | Best quality |
 | Qwen 3 14B | `qwen3:14b` | ~9 GB | Fast | Good balance — recommended for free tier |
 | Qwen 3 8B | `qwen3:8b` | ~5 GB | Fastest | Quick experiments |
 | Qwen 2.5 Coder 32B | `qwen2.5-coder:32b` | ~20 GB | Moderate | Code-specialised |
 | Qwen 2.5 Coder 14B | `qwen2.5-coder:14b` | ~9 GB | Fast | Code-specialised |
+| Llama 3.1 8B | `llama3.1:8b` | ~5 GB | Fast | General purpose |
+| Llama 3.1 70B | `llama3.1:70b` | ~40 GB | Slow | Large context |
+| Mistral 7B | `mistral:7b` | ~4 GB | Fast | Good all-around performance |
+| CodeLlama 13B | `codellama:13b` | ~7 GB | Fast | Code-optimized |
+| Deepseek Coder 6.7B | `deepseek-coder:6.7b` | ~3.8 GB | Fastest | Code-specialized |
 
 ---
 
@@ -59,7 +66,7 @@ Simpler to set up, but the URL rotates every ~2 hours on the free tier.
 2. Copy your authtoken from the [dashboard](https://dashboard.ngrok.com/get-started/your-authtoken)
 3. In Colab Secrets, add: `ngrok_authtoken` = `<your-token>`
 
-The notebook auto-detects whichever secret is present. If both are set, Cloudflare takes priority.
+The notebook uses a dropdown to select tunnel method. Cloudflare quick tunnel is the default and requires no credentials.
 
 ---
 
@@ -67,13 +74,14 @@ The notebook auto-detects whichever secret is present. If both are set, Cloudfla
 
 ### Running the notebook
 
-Open `Ollama_Colab_v2_1.ipynb` in Google Colab and run the cells in order (Steps 1–9). The public URL is printed at the end of Step 7.
+Open `Ollama_Colab_v2_4.ipynb` in Google Colab and run the cells in order (Steps 1–9). The public URL is printed at the end of Step 7.
 
 ### Making requests
 
 Replace `https://your-url` with the URL from Step 7.
 
-**curl**
+### curl
+
 ```bash
 # Chat
 curl -X POST https://your-url/api/chat \
@@ -91,7 +99,8 @@ curl -X POST https://your-url/api/chat \
   -d '{"model": "qwen3:14b", "messages": [{"role": "user", "content": "/think Solve this step by step: ..."}]}'
 ```
 
-**Python**
+### Python
+
 ```python
 import requests
 
@@ -105,7 +114,7 @@ response = requests.post(
 print(response.json()["message"]["content"])
 ```
 
-**VS Code (Continue / CodeGPT extension)**
+### VS Code (Continue / CodeGPT extension)
 
 1. Install the extension
 2. Set provider to **Ollama**
@@ -119,22 +128,20 @@ print(response.json()["message"]["content"])
 ```
 .
 ├── Ollama_Colab_v2_4.ipynb   # Main notebook (current version)
-├── Ollama_Colab_v2_3.ipynb   # Previous version
-├── Ollama_Colab_v2_2.ipynb   # Previous version
-├── Ollama_Colab_v2_1.ipynb   # Previous version
+├── Old_Version/              # Previous version and documentation
 └── README.md
 ```
 
 ### Notebook steps
 
 | Step | Cell | What it does |
-|---|---|---|
+| --- | --- | --- |
 | 1 | Install | Verifies GPU, installs Ollama, pyngrok, cloudflared |
-| 2 | Configure | Model selection dropdown |
-| 3 | Imports | Loads libraries, detects tunnel type from Colab Secrets |
-| 4 | Helpers | `stream_output` and `test_endpoint` utility functions |
+| 2 | Configure | Live model browser with search and filtering |
+| 3 | Imports | Loads libraries, configures tunnel method from dropdown |
+| 4 | Helpers | `stream_output` and `wait_for_ollama` utility functions |
 | 5 | Ollama server | Starts `ollama serve`, waits for readiness, checks for early exit |
-| 6 | Pull model | Downloads the selected model with live progress |
+| 6 | Pull model | Downloads selected model with live progress |
 | 7 | Tunnel | Opens ngrok or Cloudflare Tunnel, prints public URL |
 | 8 | Test | Sends a sample prompt, prints the response |
 | 9 | Keep-alive | Blocks to keep the server running; shuts down cleanly on interrupt |
@@ -163,12 +170,14 @@ print(response.json()["message"]["content"])
 - The hardcoded model dropdown is removed — any model in the Ollama library is now selectable
 
 ### v2.3
+
 - Added **tunnel selection dropdown** in Step 3 (Colab form UI)
 - Default is **Cloudflare quick tunnel** — no credentials needed, just run
 - Selecting a named tunnel or ngrok loads the token from Colab Secrets and shows a clear error if the secret is missing, rather than silently falling back
 - Removed auto-detection logic in favour of explicit user choice
 
 ### v2.2
+
 - Added **Cloudflare quick tunnel** as a zero-credential fallback (no secrets needed)
 - Tunnel priority: `cloudflare_token` → `ngrok_authtoken` → quick tunnel (auto-detected)
 - Added `OLLAMA_KEEP_ALIVE=-1` — model stays loaded in VRAM, eliminating cold-start delays between requests
@@ -180,6 +189,7 @@ print(response.json()["message"]["content"])
 - Added `qwen2.5-coder:7b` to model dropdown
 
 ### v2.1
+
 - Fixed Cloudflare Tunnel token handling — now uses `cloudflared tunnel run --token` (correct invocation)
 - Fixed `shell=True` + list args conflict in tunnel subprocess
 - Removed dead 60-second wait loop in Cloudflare setup
@@ -191,6 +201,7 @@ print(response.json()["message"]["content"])
 - `for line in process.stdout` loop replaces manual `readline()` + `poll()` pattern
 
 ### v2.0
+
 - Dual-tunnel support (ngrok + Cloudflare auto-detection)
 - Qwen 3 model support
 - Colab Secrets integration
