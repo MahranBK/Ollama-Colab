@@ -1,129 +1,191 @@
-# Ollama Colab
+# Ollama Colab v2.5
 
-Run a large language model on a free Google Colab GPU and expose it as a public API endpoint — accessible from anywhere via a secure tunnel.
+Run Ollama (a tool for running large language models locally) on Google Colab with a public HTTPS endpoint via Cloudflare Tunnel or ngrok.
 
-Built as a self-teaching project exploring LLM inference, tunneling, and remote API access.
+> Built as a self-teaching project exploring LLM inference, tunneling, and remote API access.
 
 ---
 
 ## What it does
 
-The notebook (`Ollama_Colab_v2_4.ipynb`) automates the full setup on a Colab instance:
-
-1. Verifies GPU availability
-2. Installs [Ollama](https://ollama.com) and tunnel dependencies
-3. Pulls your chosen model from the entire Ollama library  
-4. Starts the Ollama server
-5. Opens a public tunnel (ngrok or Cloudflare)
-6. Tests the endpoint with a sample prompt
-7. Keeps the server alive for the duration of the session
-
-Once running, the endpoint speaks the standard Ollama HTTP API — compatible with any client that supports it (curl, Python `requests`, VS Code extensions, etc.).
+- Installs Ollama on a Colab GPU instance
+- Lets you browse and select any model from the Ollama library
+- Exposes the Ollama API over a public HTTPS tunnel
+- Supports the standard Ollama API *and* the Anthropic-compatible `/v1/messages` endpoint (Ollama v0.14.0+)
 
 ---
 
-## Supported models
+## Quick Start
 
-The v2.4 notebook includes a **live model browser** that lets you select from the entire Ollama library. Popular models include:
-
-| Model | Tag | Size | Speed on T4 | Speed on A100 | Notes |
-| --- | --- | --- | --- | --- | --- |
-| DeepSeek R1 14B | `deepseek-r1:14b` | ~9 GB | Fast | Very Fast | Best reasoning for T4 |
-| Qwen 2.5 14B | `qwen2.5:14b` | ~9 GB | Fast | Very Fast | Good balance — recommended |
-| Qwen 2.5 Coder 14B | `qwen2.5-coder:14b` | ~9 GB | Fast | Very Fast | Code-specialised |
-| Llama 3.1 8B | `llama3.1:8b` | ~5 GB | Fast | Very Fast | General purpose |
-| DeepSeek R1 32B | `deepseek-r1:32b` | ~20 GB | Slow (offload) | Fast | Best reasoning, fits in A100 |
-| DeepSeek R1 70B | `deepseek-r1:70b` | ~40 GB | N/A | Fast | Best reasoning, requires A100 |
-| Mistral 7B | `mistral:7b` | ~4 GB | Fast | Very Fast | Good all-around performance |
+1. Open the notebook in Google Colab
+2. Set GPU runtime: `Runtime → Change runtime type → T4 GPU → Save`
+3. Run `Runtime → Run all`, or execute each cell in order (Steps 1–10)
+4. Copy the public URL printed in Step 8
+5. Test with curl, Python, or a VS Code extension
 
 ---
 
-## Prerequisites
+## Notebook Structure
 
-### 1. Google Colab runtime
-
-**Free tier**: Change the runtime to **T4 GPU** before running:  
-`Runtime → Change runtime type → T4 GPU → Save`
-
-**Colab Pro+ (2026)**: Offers access to **A100 GPU** (40GB VRAM), enabling much larger models:  
-`Runtime → Change runtime type → A100 GPU → Save`
-
-### 2. Tunnel credentials (one of the following)
-
-**Option A — Cloudflare Tunnel** *(recommended)*  
-Provides a stable, fixed hostname with no session limits.
-
-1. Sign up at [one.dash.cloudflare.com](https://one.dash.cloudflare.com)
-2. Go to **Networks → Tunnels → Create a tunnel**
-3. Copy the tunnel token
-4. In Colab, open **Secrets** (key icon in the sidebar)
-5. Add a secret: `cloudflare_token` = `<your-token>`
-
-**Option B — ngrok**  
-Simpler to set up, but has significant 2026 free tier limitations:
-
-⚠️ **2026 Free Tier Restrictions:**
-
-- **1 GB/month bandwidth cap** - Very limited for LLM API usage
-- **Interstitial warning pages** - Browser traffic shows ngrok warnings
-- **URL rotation** - Changes every ~2 hours
-
-1. Sign up at [ngrok.com](https://ngrok.com)
-2. Copy your authtoken from the [dashboard](https://dashboard.ngrok.com/get-started/your-authtoken)
-3. In Colab Secrets, add: `ngrok_authtoken` = `<your-token>`
-
-💡 **Recommendation**: Use Cloudflare Tunnel instead - no bandwidth limits or warning pages.
-
-The notebook uses a dropdown to select tunnel method. Cloudflare quick tunnel is the default and requires no credentials.
+| Step | What it does |
+|------|-------------|
+| **1 — Install Dependencies** | Checks Python/GPU, installs missing packages, initialises shared globals |
+| **2 — Model Browser** | Interactive widget to browse/filter/select Ollama models and tags |
+| **3 — Configure Environment** | Memory management policy, tunnel type, loads Colab Secrets |
+| **4 — GPU Monitoring** | One-shot GPU snapshot; `monitor_gpu()` available for live stats |
+| **5 — Install Ollama** | Downloads and installs the Ollama binary via the official install script |
+| **6 — Pull Model** | Downloads the selected model with streamed progress output |
+| **7 — Start Ollama Server** | Launches `ollama serve` in the background, waits for the API to respond |
+| **8 — Start Tunnel** | Creates the public HTTPS endpoint (Cloudflare quick/named or ngrok) |
+| **9 — Test Endpoint** | Sends a configurable test prompt and prints the response |
+| **10 — Keep Server Alive** | Blocking loop; stops cell (■) to shut down cleanly |
 
 ---
 
-## Usage
+## Tunnel Options
 
-### Running the notebook
+| Option | Credentials needed | URL stability |
+|--------|--------------------|---------------|
+| Cloudflare quick tunnel | None | Changes every run |
+| Cloudflare named tunnel | `cloudflare_token` secret | Fixed hostname |
+| ngrok | `ngrok_authtoken` secret | Rotates every ~2 hours (free tier) |
 
-Open `Ollama_Colab_v2_4.ipynb` in Google Colab and run the cells in order (Steps 1–9). The public URL is printed at the end of Step 7.
+Add secrets via the 🔑 sidebar in Colab before running Step 3.
 
----
-
-## Limitations
-
-- **Colab free tier**: Sessions last a few hours; daily GPU quota applies. Models up to 14B are ideal.
-- **T4 VRAM**: T4 has 16GB. Models > 14B (like 32B) will offload to system RAM and run significantly slower.
-- **A100 VRAM**: A100 has 40GB. Can comfortably run 70B+ models with full GPU acceleration. Available in Colab Pro+ (2026).
-- **ngrok free tier (2026)**: 1 GB/month bandwidth cap is very restrictive for LLM API usage; warning pages interrupt browser traffic.
-- **Security**: The tunnel exposes your Ollama instance publicly with no authentication. In 2026, this creates significant security risks:
-  - **Unauthorized inference**: Anyone can use your GPU quota for model inference
-  - **Cost abuse**: Malicious actors could run expensive operations at your expense
-  - **Prompt injection**: Vulnerable to adversarial prompt attacks
-  - **Tool exploitation**: If using models with tool access, could trigger unauthorized actions
-  - **Data exfiltration**: Models with internet access could be manipulated to extract data
-
-  **Recommendations:**
-  - Use only on trusted networks or for short testing periods
-  - Consider adding authentication (API key, OAuth, or reverse proxy)
-  - Monitor usage and costs regularly
-  - Disable tool access for public deployments
-  - Never use with models containing sensitive information
-
-## Ollama 2026 Features
-
-The notebook supports the latest Ollama capabilities (v0.14.0+):
-
-- **Anthropic API Compatibility**: Enables Claude Code integration and Anthropic-style API clients
-- **Structured Outputs (JSON Schema)**: Generate valid JSON responses with schema validation for API consumers
-- **Web Search Plugin**: Enable web search capabilities via Ollama integrations (requires additional setup)
-
-These features can be enabled through the Ollama API endpoints exposed by the notebook.
+| Secret name | Where to get it |
+|---|---|
+| `cloudflare_token` | [Cloudflare dashboard](https://one.dash.cloudflare.com) → Networks → Tunnels → Create tunnel |
+| `ngrok_authtoken` | [ngrok dashboard](https://dashboard.ngrok.com/get-started/your-authtoken) |
 
 ---
 
-## Learning goals
+## API Usage
 
-This project was built to explore:
+Replace `https://your-url` with the URL printed in Step 8.
 
-- Running local LLMs on cloud GPU hardware
-- The Ollama API and how LLM servers work
-- Tunneling techniques for exposing local services publicly
-- Python subprocess management and background threading
-- Google Colab as a free compute platform
+### curl
+
+```bash
+# Chat
+curl -X POST https://your-url/api/chat \
+  -H 'Content-Type: application/json' \
+  -d '{"model": "qwen2.5:14b", "messages": [{"role": "user", "content": "Explain recursion"}]}'
+
+# Anthropic-compatible endpoint (Ollama v0.14.0+)
+curl -X POST https://your-url/v1/messages \
+  -H 'Content-Type: application/json' \
+  -d '{"model": "qwen2.5:14b", "max_tokens": 1024, "messages": [{"role": "user", "content": "Hello!"}]}'
+```
+
+### Python
+
+```python
+import requests
+
+response = requests.post(
+    'https://your-url/api/chat',
+    json={
+        'model':    'qwen2.5:14b',
+        'messages': [{'role': 'user', 'content': 'Write a Flask API'}],
+        'stream':   False,
+    }
+)
+print(response.json()['message']['content'])
+```
+
+### Structured Output
+
+```python
+schema = {
+    'type': 'object',
+    'properties': {
+        'name':   {'type': 'string'},
+        'age':    {'type': 'number'},
+        'skills': {'type': 'array', 'items': {'type': 'string'}},
+    },
+    'required': ['name', 'age'],
+}
+
+response = requests.post(
+    'https://your-url/api/generate',
+    json={'model': 'qwen2.5:14b', 'prompt': 'Generate a developer profile',
+          'format': schema, 'stream': False},
+)
+```
+
+---
+
+## Security
+
+> ⚠️ Your Ollama instance is **publicly accessible without authentication**.
+
+- Use for short testing sessions only
+- Monitor GPU usage regularly in the Colab UI
+- Do not send sensitive or personal data through the public endpoint
+- For production use, add authentication (API key, OAuth, or a reverse proxy)
+
+### Emergency shutdown
+
+```python
+for name, proc in _bg_processes.items():
+    try:
+        proc.terminate()
+        print(f'Terminated: {name}')
+    except Exception:
+        pass
+```
+
+---
+
+## Colab Limits
+
+| Tier | Session length | GPU |
+|------|---------------|-----|
+| Free | A few hours | T4 (16 GB VRAM) |
+| Pro | Up to 24 hours | L4 (24 GB VRAM) |
+| Pro+ | Up to 24 hours | A100 (40 GB VRAM) |
+
+---
+
+## Recommended Models by GPU
+
+| Model | Size on disk | Fits on T4? |
+|-------|-------------|-------------|
+| `qwen2.5:7b` | ~4 GB | ✅ Comfortable |
+| `qwen2.5-coder:14b` | ~9 GB | ✅ Comfortable |
+| `deepseek-r1:14b` | ~9 GB | ✅ Comfortable |
+| `llama3.1:8b` | ~5 GB | ✅ Comfortable |
+| `qwen2.5:32b` | ~20 GB | ⚠️ May exceed T4 VRAM |
+| `deepseek-r1:32b` | ~20 GB | ⚠️ May exceed T4 VRAM |
+
+---
+
+## Changelog
+
+### v2.5
+- Fixed: duplicate model browser definitions removed
+- Fixed: missing `ollama serve` step added (Step 7)
+- Fixed: missing Ollama install step added (Step 5)
+- Fixed: security advisory was in a code cell (now markdown only)
+- Fixed: `_bg_processes` and globals now initialised in Step 1 to prevent `NameError` on out-of-order execution
+- Fixed: GPU monitor HTML table now built as a single string before `display()` call
+- Fixed: step numbers now match the Table of Contents (1–10, no gaps or duplicates)
+- Improved: memory config widget auto-applies on change and persists to `os.environ`
+- Improved: type hints and docstrings throughout
+- Improved: `check_model_memory_safety` uses a single dict lookup instead of nested if-chains
+
+### v2.4
+- Initial public release
+- Interactive model browser with Ollama library scraping and static fallback
+- Cloudflare quick tunnel, named tunnel, and ngrok support
+- GPU monitoring widget
+- Memory management policy widget
+
+---
+
+## Resources
+
+- [Ollama documentation](https://ollama.com/docs)
+- [Ollama security best practices](https://github.com/ollama/ollama/blob/main/docs/security.md)
+- [Colab security guide](https://research.google.com/colab/security)
+- [OWASP API Security Checklist](https://owasp.org/www-project-api-security/)
